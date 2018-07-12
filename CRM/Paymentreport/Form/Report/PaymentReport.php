@@ -76,12 +76,24 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
             'default' => TRUE,
           ),
           'check_number' => array(
-            'title' => E::ts('Cheque #'),
+            'title' => E::ts('Check #'),
+            'default' => TRUE,
+          ),
+          'pan_truncation' => array(
+            'title' => E::ts('Pan Trunction'),
+            'default' => TRUE,
+          ),
+          'card_type_id' => array(
+            'title' => E::ts('Card Type'),
+            'default' => TRUE,
+          ),
+          'payment_processor_id' => array(
+            'title' => E::ts('Payment Processor'),
             'default' => TRUE,
           ),
           'currency' => array(
             'title' => E::ts('Currency'),
-            'no_display' => FALSE,
+            'default' => TRUE,
           ),
           'trxn_date' => array(
             'title' => E::ts('Transaction Date'),
@@ -95,6 +107,18 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
             'type' => CRM_Utils_Type::T_INT,
             'operatorType' => CRM_Report_Form::OP_MULTISELECT,
             'options' => CRM_Contribute_PseudoConstant::paymentInstrument(),
+          ),
+          'payment_processor_id' => array(
+            'title' => E::ts('Payment Processor'),
+            'type' => CRM_Utils_Type::T_INT,
+            'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+            'options' => CRM_Core_PseudoConstant::paymentProcessor(),
+          ),
+          'card_type_id' => array(
+            'title' => E::ts('Card Type'),
+            'type' => CRM_Utils_Type::T_INT,
+            'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+            'options' => CRM_Financial_DAO_FinancialTrxn::buildOptions('card_type_id'),
           ),
           'currency' => array(
             'title' => E::ts('Currency'),
@@ -282,6 +306,18 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
         }
         $entryFound = TRUE;
       }
+      if (array_key_exists('civicrm_financial_trxn_payment_processor_id', $row)) {
+        if ($value = $row['civicrm_financial_trxn_payment_processor_id']) {
+          $rows[$rowNum]['civicrm_financial_trxn_payment_processor_id'] = CRM_Core_DAO::getFieldValue('CRM_Financial_DAO_PaymentProcessor', $value, 'name');
+        }
+        $entryFound = TRUE;
+      }
+      if (array_key_exists('civicrm_financial_trxn_card_type_id', $row)) {
+        if ($value = $row['civicrm_financial_trxn_card_type_id']) {
+          $rows[$rowNum]['civicrm_financial_trxn_card_type_id'] = CRM_Core_PseudoConstant::getLabel('CRM_Core_BAO_FinancialTrxn', 'card_type_id', $value);
+        }
+        $entryFound = TRUE;
+      }
       if (array_key_exists('civicrm_contribution_contribution_status_id', $row)) {
         $contributionStatuses = CRM_Core_OptionGroup::values('contribution_status',
           FALSE, FALSE, FALSE, NULL, 'name', FALSE
@@ -309,6 +345,63 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
         break;
       }
     }
+  }
+  /**
+   * @param $rows
+   *
+   * @return array
+   */
+  public function statistics(&$rows) {
+    $statistics = parent::statistics($rows);
+
+    $totalAmount = $average = $fees = $net = array();
+    $count = 0;
+    $select = "
+        SELECT COUNT({$this->_aliases['civicrm_contribution']}.total_amount ) as count,
+               SUM( {$this->_aliases['civicrm_contribution']}.total_amount ) as amount,
+               ROUND(AVG({$this->_aliases['civicrm_contribution']}.total_amount), 2) as avg,
+               {$this->_aliases['civicrm_contribution']}.currency as currency,
+               SUM( {$this->_aliases['civicrm_contribution']}.fee_amount ) as fees,
+               SUM( {$this->_aliases['civicrm_contribution']}.net_amount ) as net
+        ";
+
+    $group = "\nGROUP BY {$this->_aliases['civicrm_contribution']}.currency";
+    $sql = "{$select} {$this->_from} {$this->_where} {$group}";
+    $dao = CRM_Core_DAO::executeQuery($sql);
+    $this->addToDeveloperTab($sql);
+
+    while ($dao->fetch()) {
+      $totalAmount[] = CRM_Utils_Money::format($dao->amount, $dao->currency) . " (" . $dao->count . ")";
+      $fees[] = CRM_Utils_Money::format($dao->fees, $dao->currency);
+      $net[] = CRM_Utils_Money::format($dao->net, $dao->currency);
+      $average[] = CRM_Utils_Money::format($dao->avg, $dao->currency);
+      $count += $dao->count;
+    }
+    $statistics['counts']['amount'] = array(
+      'title' => ts('Total Amount (Contributions)'),
+      'value' => implode(',  ', $totalAmount),
+      'type' => CRM_Utils_Type::T_STRING,
+    );
+    $statistics['counts']['count'] = array(
+      'title' => ts('Total Contributions'),
+      'value' => $count,
+    );
+    $statistics['counts']['fees'] = array(
+      'title' => ts('Fees'),
+      'value' => implode(',  ', $fees),
+      'type' => CRM_Utils_Type::T_STRING,
+    );
+    $statistics['counts']['net'] = array(
+      'title' => ts('Net'),
+      'value' => implode(',  ', $net),
+      'type' => CRM_Utils_Type::T_STRING,
+    );
+    $statistics['counts']['avg'] = array(
+      'title' => ts('Average'),
+      'value' => implode(',  ', $average),
+      'type' => CRM_Utils_Type::T_STRING,
+    );
+    return $statistics;
   }
 
 }
