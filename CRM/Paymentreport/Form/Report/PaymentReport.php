@@ -80,7 +80,7 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
             'default' => TRUE,
           ),
           'pan_truncation' => array(
-            'title' => E::ts('Pan Trunction'),
+            'title' => E::ts('Last 4 digits of the card'),
             'default' => TRUE,
           ),
           'card_type_id' => array(
@@ -141,6 +141,16 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
       'civicrm_contribution' => array(
         'dao' => 'CRM_Contribute_DAO_Contribution',
         'fields' => array(
+          'contribution_id' => array(
+            'name' => 'id',
+            'no_display' => TRUE,
+            'required' => TRUE,
+            'title' => ts(''),
+          ),
+          'id' => array(
+            'name' => 'id',
+            'title' => ts('Contribution ID'),
+          ),
           'trxn_id' => array(
             'title' => E::ts('Transaction ID'),
             'no_repeat' => FALSE,
@@ -155,6 +165,13 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
           ),
         ),
         'filters' => array(
+          'contribution_status_id' => array(
+            'title' => ts('Contribution Status'),
+            'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+            'options' => CRM_Contribute_PseudoConstant::contributionStatus(),
+            'default' => array(1),
+            'type' => CRM_Utils_Type::T_INT,
+          ),
           'trxn_id' => array('title' => E::ts('Transaction ID')),
         ),
       ),
@@ -257,7 +274,7 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
   }
 
   function orderBy() {
-    $this->_orderBy = " ORDER BY {$this->_aliases['civicrm_contribution']}.id, {$this->_aliases['civicrm_contact']}.sort_name, {$this->_aliases['civicrm_contact']}.id";
+    $this->_orderBy = " ORDER BY {$this->_aliases['civicrm_contribution']}.id, {$this->_aliases['civicrm_contact']}.sort_name, {$this->_aliases['civicrm_contact']}.id, {$this->_aliases['civicrm_financial_trxn']}.check_number, {$this->_aliases['civicrm_contribution']}.contribution_status_id, {$this->_aliases['civicrm_financial_trxn']}.card_type_id, {$this->_aliases['civicrm_financial_trxn']}.trxn_date, {$this->_aliases['civicrm_contribution']}.invoice_number";
   }
 
   function postProcess() {
@@ -338,6 +355,16 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
         );
         $rows[$rowNum]['civicrm_contact_sort_name_link'] = $url;
         $rows[$rowNum]['civicrm_contact_sort_name_hover'] = E::ts("View Contact Summary for this Contact.");
+        $entryFound = TRUE;
+      }
+      if ( array_key_exists('civicrm_contribution_id', $row) ) {
+        $url = CRM_Utils_System::url("civicrm/contact/view/contribution",
+          'reset=1&id=' . $row['civicrm_contribution_id'].'&cid=' . $row['civicrm_contact_id'].'&action=view',
+          $this->_absoluteUrl
+        );
+        $rows[$rowNum]['civicrm_contribution_id_link'] = $url;
+        $rows[$rowNum]['civicrm_contribution_id_hover'] = E::ts("View Contribution summary");
+        $rows[$rowNum]['civicrm_contribution_id_class'] = E::ts("crm-popup");
         $entryFound = TRUE;
       }
 

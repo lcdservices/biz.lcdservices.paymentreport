@@ -150,29 +150,8 @@ function paymentreport_civicrm_preProcess($formName, &$form) {
  *
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_navigationMenu
  *
- */
+
 function paymentreport_civicrm_navigationMenu(&$menu) {
-  $pages = array(
-    'settings_page' => array(
-      'label'      => 'Payment Reports',
-      'name'       => 'Payment Reports',
-      'url'        => 'civicrm/report/payment?reset=1',
-      'parent'    => array('Reports'),
-      'permission' => 'access CiviCRM',
-      'operator'   => NULL,
-      'separator'  => NULL,
-      'active'     => 1,
-    ),
-  );
-  foreach ($pages as $item) {
-    // Check that our item doesn't already exist.
-    $menu_item_search = array('url' => $item['url']);
-    $menu_items = array();
-    CRM_Core_BAO_Navigation::retrieve($menu_item_search, $menu_items);
-    if (empty($menu_items)) {
-      $path = implode('/', $item['parent']);
-      unset($item['parent']);
-      _paymentreport_civix_insert_navigation_menu($menu, $path, $item);
-    }
-  }
+ 
 }
+*/
