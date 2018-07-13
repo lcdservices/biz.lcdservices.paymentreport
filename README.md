@@ -2,14 +2,14 @@
 
 ![Screenshot](/images/screenshot.png)
 
-(*FIXME: In one or two paragraphs, describe what the extension does and why one would download it. *)
+This extension installs a Payment Report template which can be used to generate lists of payment records attached to contributions. This is particularly helpful if your organization frequently has multiple payments linked to a single contribution and needs to be able to report on them apart from the parent contribution.
 
 The extension is licensed under [AGPL-3.0](LICENSE.txt).
 
 ## Requirements
 
 * PHP v5.4+
-* CiviCRM (*FIXME: Version number*)
+* CiviCRM 4.7+
 
 ## Installation (Web UI)
 
@@ -37,8 +37,4 @@ cv en paymentreport
 
 ## Usage
 
-(* FIXME: Where would a new user navigate to get started? What changes would they see? *)
-
-## Known Issues
-
-(* FIXME *)
+Navigate to Reports, Contribution Reports, and select New Contribution Report. Locate the Payment Report and click to create a new report from that template. As with any report, you can create (save) a new report after selecting your desired configuration options.
