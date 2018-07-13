@@ -11,8 +11,8 @@ return array (
     'params' => 
     array (
       'version' => 3,
-      'label' => 'PaymentReport',
-      'description' => 'PaymentReport (biz.lcdservices.paymentreport)',
+      'label' => 'Payment Report',
+      'description' => 'Payment Report (biz.lcdservices.paymentreport)',
       'class_name' => 'CRM_Paymentreport_Form_Report_PaymentReport',
       'report_url' => 'biz.lcdservices.paymentreport/paymentreport',
       'component' => 'CiviContribute',
