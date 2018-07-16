@@ -53,6 +53,9 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
             'no_display' => TRUE,
           ),
         ),
+        'order_bys' => array(
+          'sort_name' => array('title' => E::ts('Contact Name')),
+        ),
         'grouping' => 'contact-fields',
       ),
       'civicrm_entity_financial_trxn' => array(
@@ -135,6 +138,9 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
         ),
         'order_bys' => array(
           'payment_instrument_id' => array('title' => E::ts('Payment Method')),
+          'check_number' => array('title' => E::ts('Check')),
+          'card_type_id' => array('title' => E::ts('Card Type')),
+          'trxn_date' => array('title' => E::ts('Transaction Date')),
         ),
       ),
       
@@ -173,6 +179,10 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
             'type' => CRM_Utils_Type::T_INT,
           ),
           'trxn_id' => array('title' => E::ts('Transaction ID')),
+        ),
+        'order_bys' => array(
+          'contribution_status_id' => array('title' => E::ts('Contribution Status')),
+          'invoice_number' => array('title' => E::ts('Invoice Number')),
         ),
       ),
     );
@@ -268,13 +278,9 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
       $this->_where .= " AND {$this->_aclWhere} ";
     }
   }
-
+  
   function groupBy() {
     $this->_groupBy = " GROUP BY {$this->_aliases['civicrm_contribution']}.id";
-  }
-
-  function orderBy() {
-    $this->_orderBy = " ORDER BY {$this->_aliases['civicrm_contribution']}.id, {$this->_aliases['civicrm_contact']}.sort_name, {$this->_aliases['civicrm_contact']}.id, {$this->_aliases['civicrm_financial_trxn']}.check_number, {$this->_aliases['civicrm_contribution']}.contribution_status_id, {$this->_aliases['civicrm_financial_trxn']}.card_type_id, {$this->_aliases['civicrm_financial_trxn']}.trxn_date, {$this->_aliases['civicrm_contribution']}.invoice_number";
   }
 
   function postProcess() {
