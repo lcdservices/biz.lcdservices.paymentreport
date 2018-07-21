@@ -266,6 +266,8 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
         }
       }
     }
+    
+    $clauses[] = "{$this->_aliases['civicrm_financial_trxn']}.is_payment = 1";
 
     if (empty($clauses)) {
       $this->_where = "WHERE ( 1 ) ";
@@ -279,10 +281,6 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
     }
   }
   
-  function groupBy() {
-    $this->_groupBy = " GROUP BY {$this->_aliases['civicrm_contribution']}.id";
-  }
-
   function postProcess() {
 
     $this->beginPostProcess();
