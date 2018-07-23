@@ -133,7 +133,7 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
           'trxn_date' => array(
             'title' => E::ts('Transaction Date'),
             'operatorType' => CRM_Report_Form::OP_DATE,
-            'type' => CRM_Utils_Type::T_DATE,
+            'type' => CRM_Utils_Type::T_TIME,
           ),
         ),
         'order_bys' => array(
