@@ -4,13 +4,13 @@ use CRM_Paymentreport_ExtensionUtil as E;
 class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
 
   protected $_addressField = FALSE;
-
   protected $_emailField = FALSE;
-
   protected $_summary = NULL;
-
   protected $_customGroupExtends = array('Contribution');
-  protected $_customGroupGroupBy = FALSE; function __construct() {
+  protected $_customGroupGroupBy = FALSE;
+
+  function __construct() {
+    $this->optimisedForOnlyFullGroupBy = FALSE;
     $this->_columns = array(
       'civicrm_contact' => array(
         'dao' => 'CRM_Contact_DAO_Contact',
@@ -21,36 +21,11 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
             'default' => TRUE,
             'no_repeat' => FALSE,
           ),
-          'id' => array(
-            'no_display' => TRUE,
-            'required' => TRUE,
-          ),
-          'first_name' => array(
-            'title' => E::ts('First Name'),
-            'no_repeat' => TRUE,
-            'no_display' => TRUE,
-          ),
-          'id' => array(
-            'no_display' => TRUE,
-            'required' => TRUE,
-          ),
-          'last_name' => array(
-            'title' => E::ts('Last Name'),
-            'no_repeat' => TRUE,
-            'no_display' => TRUE,
-          ),
-          'id' => array(
-            'no_display' => TRUE,
-            'required' => TRUE,
-          ),
         ),
         'filters' => array(
           'sort_name' => array(
             'title' => E::ts('Contact Name'),
             'operator' => 'like',
-          ),
-          'id' => array(
-            'no_display' => TRUE,
           ),
         ),
         'order_bys' => array(
@@ -103,6 +78,10 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
             'default' => TRUE,
             'type' => CRM_Utils_Type::T_DATE,
           ),
+          'trxn_status_id' => array(
+            'name' => 'status_id',
+            'title' => E::ts('Transaction Status'),
+          ),
         ),
         'filters' => array(
           'payment_instrument_id' => array(
@@ -147,22 +126,22 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
       'civicrm_contribution' => array(
         'dao' => 'CRM_Contribute_DAO_Contribution',
         'fields' => array(
-          'contribution_id' => array(
-            'name' => 'id',
-            'no_display' => TRUE,
-            'required' => TRUE,
-            'title' => ts(''),
-          ),
           'id' => array(
             'name' => 'id',
+            //'no_display' => TRUE,
+            'required' => TRUE,
             'title' => ts('Contribution ID'),
           ),
+          /*'contribution_id' => array(
+            'name' => 'id',
+            'title' => ts('Contribution ID'),
+          ),*/
           'trxn_id' => array(
             'title' => E::ts('Transaction ID'),
             'no_repeat' => FALSE,
           ),
           'contribution_status_id' => array(
-            'title' => E::ts('Status'),
+            'title' => E::ts('Contribution Status'),
             'no_repeat' => FALSE,
           ),
           'invoice_number' => array(
@@ -213,7 +192,7 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
       }
     }
 
-    $this->_select = "SELECT " . implode(', ', $select) . " ";
+    $this->_select = "SELECT DISTINCT " . implode(', ', $select) . " ";
   }
 
   function from() {
@@ -298,11 +277,20 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
   }
 
   function alterDisplay(&$rows) {
+    //Civi::log()->debug('alterDisplay', array('rows' => $rows));
+
     // custom code to alter rows
     $entryFound = FALSE;
     $checkList = array();
-    foreach ($rows as $rowNum => $row) {
 
+    $contributionStatuses = CRM_Core_OptionGroup::values('contribution_status',
+      FALSE, FALSE, FALSE, NULL, 'name', FALSE
+    );
+    $transactionStatuses = CRM_Core_OptionGroup::values('financial_item_status',
+      FALSE, FALSE, FALSE, NULL, 'name', FALSE
+    );
+
+    foreach ($rows as $rowNum => $row) {
       if (!empty($this->_noRepeats) && $this->_outputMode != 'csv') {
         // not repeat contact display names if it matches with the one
         // in previous row
@@ -339,12 +327,17 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
         }
         $entryFound = TRUE;
       }
+
       if (array_key_exists('civicrm_contribution_contribution_status_id', $row)) {
-        $contributionStatuses = CRM_Core_OptionGroup::values('contribution_status',
-          FALSE, FALSE, FALSE, NULL, 'name', FALSE
-        );
         if ($value = $row['civicrm_contribution_contribution_status_id']) {
-          $rows[$rowNum]['civicrm_contribution_contribution_status_id'] = CRM_Utils_Array::value($value,$contributionStatuses);
+          $rows[$rowNum]['civicrm_contribution_contribution_status_id'] = CRM_Utils_Array::value($value, $contributionStatuses);
+        }
+        $entryFound = TRUE;
+      }
+
+      if (array_key_exists('civicrm_financial_trxn_trxn_status_id', $row)) {
+        if ($value = $row['civicrm_financial_trxn_trxn_status_id']) {
+          $rows[$rowNum]['civicrm_financial_trxn_trxn_status_id'] = CRM_Utils_Array::value($value, $transactionStatuses);
         }
         $entryFound = TRUE;
       }
@@ -387,52 +380,38 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
 
     $totalAmount = $average = $fees = $net = array();
     $count = 0;
-    $select = "
-        SELECT COUNT({$this->_aliases['civicrm_contribution']}.total_amount ) as count,
-               SUM( {$this->_aliases['civicrm_contribution']}.total_amount ) as amount,
-               ROUND(AVG({$this->_aliases['civicrm_contribution']}.total_amount), 2) as avg,
-               {$this->_aliases['civicrm_contribution']}.currency as currency,
-               SUM( {$this->_aliases['civicrm_contribution']}.fee_amount ) as fees,
-               SUM( {$this->_aliases['civicrm_contribution']}.net_amount ) as net
-        ";
 
-    $group = "\nGROUP BY {$this->_aliases['civicrm_contribution']}.currency";
-    $sql = "{$select} {$this->_from} {$this->_where} {$group}";
+    $select = "
+      SELECT COUNT(civicrm_entity_financial_trxn_amount) as count,
+        SUM(civicrm_entity_financial_trxn_amount) as amount,
+        ROUND(AVG(civicrm_entity_financial_trxn_amount), 2) as avg
+    ";
+    $baseSql = $this->buildQuery(TRUE);
+    $baseSql = str_replace('SQL_CALC_FOUND_ROWS', '', $baseSql);
+    $sql = "{$select} FROM ({$baseSql}) baseQuery";
     $dao = CRM_Core_DAO::executeQuery($sql);
     $this->addToDeveloperTab($sql);
 
     while ($dao->fetch()) {
-      $totalAmount[] = CRM_Utils_Money::format($dao->amount, $dao->currency) . " (" . $dao->count . ")";
-      $fees[] = CRM_Utils_Money::format($dao->fees, $dao->currency);
-      $net[] = CRM_Utils_Money::format($dao->net, $dao->currency);
-      $average[] = CRM_Utils_Money::format($dao->avg, $dao->currency);
+      $totalAmount[] = CRM_Utils_Money::format($dao->amount) . " (" . $dao->count . ")";
+      $average[] = CRM_Utils_Money::format($dao->avg);
       $count += $dao->count;
     }
     $statistics['counts']['amount'] = array(
-      'title' => ts('Total Amount (Contributions)'),
+      'title' => ts('Total Amount (Payments)'),
       'value' => implode(',  ', $totalAmount),
       'type' => CRM_Utils_Type::T_STRING,
     );
     $statistics['counts']['count'] = array(
-      'title' => ts('Total Contributions'),
+      'title' => ts('Total Count (Payments)'),
       'value' => $count,
-    );
-    $statistics['counts']['fees'] = array(
-      'title' => ts('Fees'),
-      'value' => implode(',  ', $fees),
-      'type' => CRM_Utils_Type::T_STRING,
-    );
-    $statistics['counts']['net'] = array(
-      'title' => ts('Net'),
-      'value' => implode(',  ', $net),
-      'type' => CRM_Utils_Type::T_STRING,
     );
     $statistics['counts']['avg'] = array(
       'title' => ts('Average'),
       'value' => implode(',  ', $average),
       'type' => CRM_Utils_Type::T_STRING,
     );
+
     return $statistics;
   }
-
 }
