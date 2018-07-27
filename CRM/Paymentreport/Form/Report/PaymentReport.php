@@ -21,6 +21,11 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
             'default' => TRUE,
             'no_repeat' => FALSE,
           ),
+          'exposed_id' => array(
+            'title' => E::ts('Contact ID'),
+            'name' => 'id',
+            'no_repeate' => FALSE,
+          )
         ),
         'filters' => array(
           'sort_name' => array(
@@ -114,6 +119,15 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
             'operatorType' => CRM_Report_Form::OP_DATE,
             'type' => CRM_Utils_Type::T_TIME,
           ),
+          'trxn_status_id' => array(
+            'name' => 'status_id',
+            'title' => E::ts('Transaction Status'),
+            'type' => CRM_Utils_Type::T_INT,
+            'operatorType' => CRM_Report_Form::OP_MULTISELECT,
+            'options' => CRM_Core_OptionGroup::values('contribution_status',
+              FALSE, FALSE, FALSE, NULL, 'name', FALSE
+            )
+          )
         ),
         'order_bys' => array(
           'payment_instrument_id' => array('title' => E::ts('Payment Method')),
@@ -122,14 +136,13 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
           'trxn_date' => array('title' => E::ts('Transaction Date')),
         ),
       ),
-      
       'civicrm_contribution' => array(
         'dao' => 'CRM_Contribute_DAO_Contribution',
         'fields' => array(
           'id' => array(
             'name' => 'id',
             //'no_display' => TRUE,
-            'required' => TRUE,
+            //'required' => TRUE,
             'title' => ts('Contribution ID'),
           ),
           /*'contribution_id' => array(
@@ -164,6 +177,12 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
           'invoice_number' => array('title' => E::ts('Invoice Number')),
         ),
       ),
+      'civicrm_contribution_soft' => array(
+        'dao' => 'CRM_Contribute_DAO_ContributionSoft',
+        'fields' => array(
+          'soft_credits' => array('title' => ts('Soft Credits')),
+        ),
+      ),
     );
     $this->_groupFilter = TRUE;
     $this->_tagFilter = TRUE;
@@ -196,22 +215,28 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
   }
 
   function from() {
-    $this->_from = NULL;
-
     $this->_from = "
-         FROM  civicrm_contribution {$this->_aliases['civicrm_contribution']} {$this->_aclFrom}
-               LEFT  JOIN civicrm_contact {$this->_aliases['civicrm_contact']}
-                          ON {$this->_aliases['civicrm_contact']}.id =
-                             {$this->_aliases['civicrm_contribution']}.contact_id 
-              LEFT JOIN civicrm_entity_financial_trxn {$this->_aliases['civicrm_entity_financial_trxn']}
-                    ON ({$this->_aliases['civicrm_contribution']}.id = {$this->_aliases['civicrm_entity_financial_trxn']}.entity_id AND
-                        {$this->_aliases['civicrm_entity_financial_trxn']}.entity_table = 'civicrm_contribution')
-              LEFT JOIN civicrm_financial_trxn {$this->_aliases['civicrm_financial_trxn']}
-                    ON {$this->_aliases['civicrm_financial_trxn']}.id = {$this->_aliases['civicrm_entity_financial_trxn']}.financial_trxn_id
-              LEFT JOIN civicrm_entity_financial_trxn {$this->_aliases['civicrm_entity_financial_trxn']}_item
-                    ON ({$this->_aliases['civicrm_financial_trxn']}.id = {$this->_aliases['civicrm_entity_financial_trxn']}_item.financial_trxn_id AND
-                        {$this->_aliases['civicrm_entity_financial_trxn']}_item.entity_table = 'civicrm_financial_item')
-              ";
+      FROM civicrm_contribution {$this->_aliases['civicrm_contribution']} {$this->_aclFrom}
+      LEFT JOIN civicrm_contact {$this->_aliases['civicrm_contact']}
+        ON {$this->_aliases['civicrm_contact']}.id =
+          {$this->_aliases['civicrm_contribution']}.contact_id 
+      LEFT JOIN civicrm_entity_financial_trxn {$this->_aliases['civicrm_entity_financial_trxn']}
+        ON ({$this->_aliases['civicrm_contribution']}.id = {$this->_aliases['civicrm_entity_financial_trxn']}.entity_id AND
+          {$this->_aliases['civicrm_entity_financial_trxn']}.entity_table = 'civicrm_contribution')
+      LEFT JOIN civicrm_financial_trxn {$this->_aliases['civicrm_financial_trxn']}
+        ON {$this->_aliases['civicrm_financial_trxn']}.id = {$this->_aliases['civicrm_entity_financial_trxn']}.financial_trxn_id
+      LEFT JOIN civicrm_entity_financial_trxn {$this->_aliases['civicrm_entity_financial_trxn']}_item
+        ON ({$this->_aliases['civicrm_financial_trxn']}.id = {$this->_aliases['civicrm_entity_financial_trxn']}_item.financial_trxn_id AND
+          {$this->_aliases['civicrm_entity_financial_trxn']}_item.entity_table = 'civicrm_financial_item')
+      LEFT JOIN (
+        SELECT sc.contribution_id, GROUP_CONCAT(CONCAT(scc.display_name, ' ($', sc.amount, ')') SEPARATOR ', ') soft_credits
+        FROM civicrm_contribution_soft sc
+        JOIN civicrm_contact scc
+          ON sc.contact_id = scc.id
+        GROUP BY sc.contribution_id
+      ) {$this->_aliases['civicrm_contribution_soft']}
+        ON {$this->_aliases['civicrm_contribution']}.id = {$this->_aliases['civicrm_contribution_soft']}.contribution_id
+      ";
   }
 
   function where() {
@@ -286,9 +311,6 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
     $contributionStatuses = CRM_Core_OptionGroup::values('contribution_status',
       FALSE, FALSE, FALSE, NULL, 'name', FALSE
     );
-    $transactionStatuses = CRM_Core_OptionGroup::values('financial_item_status',
-      FALSE, FALSE, FALSE, NULL, 'name', FALSE
-    );
 
     foreach ($rows as $rowNum => $row) {
       if (!empty($this->_noRepeats) && $this->_outputMode != 'csv') {
@@ -337,14 +359,14 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
 
       if (array_key_exists('civicrm_financial_trxn_trxn_status_id', $row)) {
         if ($value = $row['civicrm_financial_trxn_trxn_status_id']) {
-          $rows[$rowNum]['civicrm_financial_trxn_trxn_status_id'] = CRM_Utils_Array::value($value, $transactionStatuses);
+          $rows[$rowNum]['civicrm_financial_trxn_trxn_status_id'] = CRM_Utils_Array::value($value, $contributionStatuses);
         }
         $entryFound = TRUE;
       }
       
       if (array_key_exists('civicrm_contact_sort_name', $row) &&
         $rows[$rowNum]['civicrm_contact_sort_name'] &&
-        array_key_exists('civicrm_contact_id', $row)
+        array_key_exists('civicrm_contact_exposed_id', $row)
       ) {
         $url = CRM_Utils_System::url("civicrm/contact/view",
           'reset=1&cid=' . $row['civicrm_contact_id'],
