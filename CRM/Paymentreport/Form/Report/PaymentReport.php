@@ -6,7 +6,10 @@ class CRM_Paymentreport_Form_Report_PaymentReport extends CRM_Report_Form {
   protected $_addressField = FALSE;
   protected $_emailField = FALSE;
   protected $_summary = NULL;
-  protected $_customGroupExtends = array('Contribution');
+  protected $_customGroupExtends = array(
+    'Contribution',
+    'FinancialTrxn',
+  );
   protected $_customGroupGroupBy = FALSE;
 
   function __construct() {
